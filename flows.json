@@ -1,0 +1,302 @@
+[
+    {
+        "id": "45d04d89ca5dbc41",
+        "type": "tab",
+        "label": "Flow 2",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "timer5s",
+        "type": "inject",
+        "z": "45d04d89ca5dbc41",
+        "name": "A cada 5 s",
+        "props": [],
+        "repeat": "5",
+        "once": true,
+        "onceDelay": "1",
+        "x": 150,
+        "y": 640,
+        "wires": [
+            [
+                "ler"
+            ]
+        ]
+    },
+    {
+        "id": "ler",
+        "type": "exec",
+        "z": "45d04d89ca5dbc41",
+        "command": "python3 $HOME/ler_sensores.py",
+        "addpay": "",
+        "append": "",
+        "useSpawn": "false",
+        "timer": "10",
+        "winHide": false,
+        "oldrc": false,
+        "name": "Lê ADS1115",
+        "x": 330,
+        "y": 640,
+        "wires": [
+            [
+                "decide"
+            ],
+            [
+                "debug_erro"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "decide",
+        "type": "function",
+        "z": "45d04d89ca5dbc41",
+        "name": "Verifica umidade",
+        "func": "let dados;\ntry {\n    dados = JSON.parse(msg.payload);\n} catch (e) {\n    node.error(\"Saída inválida: \" + msg.payload);\n    return null;\n}\n\nif (dados.erro) {\n    node.error(\"Erro no sensor: \" + dados.erro);\n    return null;\n}\n\nconst msgUmidade = { topic: \"Umidade\", payload: dados.umidade };\nconst msgLuz = { topic: \"Luz\", payload: dados.luz };\n\nlet regar = null;\nif (dados.umidade > 60000) {\n    regar = { payload: \"automático\" };\n}\n\n// saída 1 = umidade, saída 2 = luz, saída 3 = ordem de regar\nreturn [msgUmidade, msgLuz, regar];",
+        "outputs": 3,
+        "x": 520,
+        "y": 640,
+        "wires": [
+            [
+                "gauge_umidade",
+                "grafico"
+            ],
+            [
+                "gauge_luz",
+                "grafico"
+            ],
+            [
+                "pulsos"
+            ]
+        ]
+    },
+    {
+        "id": "gauge_umidade",
+        "type": "ui_gauge",
+        "z": "45d04d89ca5dbc41",
+        "name": "",
+        "group": "grupo_sensores",
+        "order": 1,
+        "width": "3",
+        "height": "3",
+        "gtype": "gage",
+        "title": "Umidade",
+        "label": "",
+        "format": "{{value}}",
+        "min": 0,
+        "max": "65535",
+        "colors": [
+            "#2e7d32",
+            "#f9a825",
+            "#c62828"
+        ],
+        "seg1": "40000",
+        "seg2": "60000",
+        "diff": false,
+        "className": "",
+        "x": 780,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "gauge_luz",
+        "type": "ui_gauge",
+        "z": "45d04d89ca5dbc41",
+        "name": "",
+        "group": "grupo_sensores",
+        "order": 2,
+        "width": "3",
+        "height": "3",
+        "gtype": "gage",
+        "title": "Luz",
+        "label": "",
+        "format": "{{value}}",
+        "min": 0,
+        "max": "65535",
+        "colors": [
+            "#424242",
+            "#f9a825",
+            "#fff176"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "x": 770,
+        "y": 600,
+        "wires": []
+    },
+    {
+        "id": "grafico",
+        "type": "ui_chart",
+        "z": "45d04d89ca5dbc41",
+        "name": "",
+        "group": "grupo_sensores",
+        "order": 3,
+        "width": "6",
+        "height": "4",
+        "label": "Histórico (última hora)",
+        "chartType": "line",
+        "legend": "true",
+        "xformat": "HH:mm",
+        "interpolate": "linear",
+        "nodata": "Aguardando dados...",
+        "dot": false,
+        "ymin": "0",
+        "ymax": "65535",
+        "removeOlder": "1",
+        "removeOlderPoints": "",
+        "removeOlderUnit": "3600",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#1f77b4",
+            "#ff7f0e",
+            "#2ca02c",
+            "#d62728",
+            "#9467bd",
+            "#8c564b",
+            "#e377c2",
+            "#7f7f7f",
+            "#bcbd22"
+        ],
+        "outputs": 1,
+        "useDifferentColor": false,
+        "x": 770,
+        "y": 640,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "botao_regar",
+        "type": "ui_button",
+        "z": "45d04d89ca5dbc41",
+        "name": "",
+        "group": "grupo_controle",
+        "order": 1,
+        "width": "6",
+        "height": "1",
+        "passthru": false,
+        "label": "Regar agora",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "icon": "fa-tint",
+        "payload": "manual",
+        "payloadType": "str",
+        "topic": "",
+        "topicType": "str",
+        "x": 530,
+        "y": 760,
+        "wires": [
+            [
+                "pulsos"
+            ]
+        ]
+    },
+    {
+        "id": "pulsos",
+        "type": "function",
+        "z": "45d04d89ca5dbc41",
+        "name": "Liga a bobina 2x",
+        "func": "// Relé ativo em 0: 0 = liga, 1 = desliga\nconst sequencia = [0, 1, 0, 1];\nsequencia.forEach((nivel, i) => {\n    setTimeout(() => node.send([{ payload: nivel }, null]), i * 500);\n});\n\nconst hora = new Date().toLocaleTimeString(\"pt-BR\");\nnode.warn(\"Jogou água (\" + msg.payload + \")\");\nreturn [null, { payload: hora + \" (\" + msg.payload + \")\" }];",
+        "outputs": 2,
+        "x": 780,
+        "y": 720,
+        "wires": [
+            [
+                "bobina"
+            ],
+            [
+                "texto_ultima"
+            ]
+        ]
+    },
+    {
+        "id": "bobina",
+        "type": "rpi-gpio out",
+        "z": "45d04d89ca5dbc41",
+        "name": "Bobina (GPIO17)",
+        "pin": "11",
+        "set": true,
+        "level": "1",
+        "freq": "",
+        "out": "out",
+        "bcm": true,
+        "x": 1000,
+        "y": 700,
+        "wires": []
+    },
+    {
+        "id": "texto_ultima",
+        "type": "ui_text",
+        "z": "45d04d89ca5dbc41",
+        "group": "grupo_controle",
+        "order": 2,
+        "width": "6",
+        "height": "1",
+        "name": "",
+        "label": "Regado pela última vez:",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": "",
+        "color": "#000000",
+        "x": 1030,
+        "y": 740,
+        "wires": []
+    },
+    {
+        "id": "debug_erro",
+        "type": "debug",
+        "z": "45d04d89ca5dbc41",
+        "name": "Erros do script",
+        "active": true,
+        "tosidebar": true,
+        "complete": "payload",
+        "x": 540,
+        "y": 700,
+        "wires": []
+    },
+    {
+        "id": "grupo_sensores",
+        "type": "ui_group",
+        "name": "Sensores",
+        "tab": "aba_horta",
+        "order": 1,
+        "disp": true,
+        "width": "6",
+        "collapse": false
+    },
+    {
+        "id": "grupo_controle",
+        "type": "ui_group",
+        "name": "Controle",
+        "tab": "aba_horta",
+        "order": 2,
+        "disp": true,
+        "width": "6",
+        "collapse": false
+    },
+    {
+        "id": "aba_horta",
+        "type": "ui_tab",
+        "name": "Horta",
+        "icon": "dashboard",
+        "order": 1,
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "4a8d6273f0582449",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-dashboard": "3.6.6",
+            "node-red-node-pi-gpio": "2.0.7"
+        }
+    }
+]
